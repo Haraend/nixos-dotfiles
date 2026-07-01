@@ -1,0 +1,14 @@
+# Ignore build outputs from performing a nix-build or `nix build` command
+result
+result-*
+
+# Ignore automatically generated direnv output
+.direnv
+
+# Cursor IDE local state (plans, settings)
+.cursor/
+
+# Local-only identity and machine-specific hardware (see *.example.nix templates)
+lib/vars.nix
+hosts/nixos/hardware-configuration.nix
+modules/home/desktop/noctalia/settings.json.bak.*
