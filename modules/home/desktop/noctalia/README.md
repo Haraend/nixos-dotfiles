@@ -1,27 +1,21 @@
-# Noctalia Shell Configuration
+# Noctalia Shell Configuration (v5.2.0)
 
-This module configures the Noctalia Shell (v4 — JSON settings, pinned to v4.7.7 in `flake.nix`).
+Noctalia **v5.2.0** (tag-pinned in `flake.nix`) uses TOML config with a declarative baseline plus GUI-managed overrides. Bump the pin deliberately and build-test. Do not set `inputs.nixpkgs.follows` on the noctalia input: that misses `noctalia.cachix.org`.
 
-## Path placeholders
+## Config layers
 
-Committed `settings.json` uses `@HOME@` and `@CONFIG@` placeholders. At rebuild, [`default.nix`](default.nix) substitutes them from `config.home.homeDirectory` and `vars.configPath` (set in `lib/vars.nix`).
+| Layer | Path | Managed by |
+|---|---|---|
+| Declarative baseline | `config.toml` in this directory, with placeholders filled at build time | Git + rebuild |
+| GUI overrides | `~/.local/state/noctalia/settings.toml` | Noctalia Settings app |
 
-## Workflow
+GUI overrides win on merge and survive rebuilds. They stay on the machine and are not part of this repo.
 
-The configuration is strictly declarative, sourced from `settings.json` in this directory.
+`config.toml` contains `@WALLPAPER@`, `@WALLPAPER_DIR@`, `@LOGO@`, `@LOCATION@`, and `@SUSPEND_CMD@`. [`default.nix`](default.nix) fills those from `vars.wallpaper`, `wallpapers/nixos-logo.png`, `vars.location`, and `vars.resumeDevice`.
 
-### To Update Settings
+## Update settings
 
-**Option 1: Edit JSON directly**
-1. Edit `modules/home/desktop/noctalia/settings.json` (keep `@HOME@` / `@CONFIG@` placeholders for user-specific paths).
-2. Rebuild your system.
+1. Edit `modules/home/desktop/noctalia/config.toml` or the matching fields in `lib/vars.nix`.
+2. Rebuild: `nh os switch path:~/nixos-dotfiles#nixos`.
 
-**Option 2: Use GUI and Sync**
-1. Make changes in the Noctalia Settings GUI.
-2. Run the sync script to copy those changes back to this repo:
-   ```bash
-   cd modules/home/desktop/noctalia
-   python3 sync-from-gui.py
-   ```
-3. Restore `@HOME@` / `@CONFIG@` in synced paths if the GUI wrote absolute paths.
-4. Rebuild your system.
+**Reset GUI overrides:** delete `~/.local/state/noctalia/settings.toml` and restart noctalia.
