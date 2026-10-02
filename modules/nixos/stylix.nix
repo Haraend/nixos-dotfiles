@@ -3,12 +3,18 @@
 { pkgs, vars, ... }:
 
 {
+  # Plain JetBrains Mono for apps (e.g. Obsidian) that should not use the Nerd Font.
+  fonts.packages = [ pkgs.jetbrains-mono ];
+
   stylix = {
     enable = true;
     image = vars.wallpaper;
     base16Scheme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml";
     polarity = "dark";
-    
+
+    # Plymouth theme is managed in modules/nixos/boot.nix (spinner).
+    targets.plymouth.enable = false;
+
     opacity.terminal = 0.95;
 
     cursor = {
@@ -28,6 +34,10 @@
       monospace = {
         package = pkgs.nerd-fonts.jetbrains-mono;
         name = "JetBrainsMono Nerd Font";
+      };
+      emoji = {
+        package = pkgs.noto-fonts-color-emoji;
+        name = "Noto Color Emoji";
       };
       sansSerif = {
         package = pkgs.dejavu_fonts;

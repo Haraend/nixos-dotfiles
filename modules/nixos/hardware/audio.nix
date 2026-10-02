@@ -9,7 +9,7 @@
     enable = true;
     alsa.enable = true;
     alsa.support32Bit = true;
-    pulse.enable = true;  # PulseAudio compatibility
+    pulse.enable = true; # PulseAudio compatibility
 
     # WirePlumber session manager (default, but explicit)
     wireplumber.enable = true;
