@@ -17,15 +17,28 @@ let
     "x-scheme-handler/https"
     "x-scheme-handler/http"
     "application/xhtml+xml"
-    "application/json"
-    "text/plain"
     "text/html"
   ];
+  # Plain text/JSON open in Zed, not the browser (see textEditorMimeTypes below).
+  textEditorMimeTypes = [
+    "application/json"
+    "text/plain"
+  ];
+  textEditorAssociations = builtins.listToAttrs (
+    map
+      (name: {
+        inherit name;
+        value = [ "dev.zed.Zed.desktop" ];
+      })
+      textEditorMimeTypes
+  );
   browserAssociations = builtins.listToAttrs (
-    map (name: {
-      inherit name;
-      value = [ zenDesktopFile ];
-    }) browserMimeTypes
+    map
+      (name: {
+        inherit name;
+        value = [ zenDesktopFile ];
+      })
+      browserMimeTypes
   );
 in
 {
@@ -40,7 +53,7 @@ in
 
   xdg.mimeApps = {
     enable = true;
-    associations.added = browserAssociations;
-    defaultApplications = browserAssociations;
+    associations.added = browserAssociations // textEditorAssociations;
+    defaultApplications = browserAssociations // textEditorAssociations;
   };
 }

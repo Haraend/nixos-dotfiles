@@ -1,11 +1,27 @@
-{ lib, pkgs, inputs, vars, ... }:
+{ lib, pkgs, inputs, vars, config, ... }:
 
 let
   zenBrowser = inputs.zen-browser.packages."${pkgs.stdenv.hostPlatform.system}".beta;
   zenAppIdRegex = "^zen(-beta)?$";
+  # IDE is "cursor"; Wayland sometimes uses cursor-url-handler. Agents View is the same app_id.
+  cursorAppIdRegex = "(?i)^cursor([-].*)?$";
+  # Fallback if app_id is empty: Agents View title vs classic IDE suffix.
+  cursorTitleRegex = "(?i)(^Cursor Agents$| - Cursor$)";
+  # Electron 41+ reports md.Obsidian or md.obsidian.Obsidian (or electron).
+  # [.] not \. — KDL quoted strings reject \. as an escape.
+  obsidianAppIdRegex = "(?i)^(obsidian|md[.]obsidian([.].*)?|electron)$";
+  obsidianTitleRegex = "(?i)obsidian";
+  # Brave --app: app_id is brave-<url with / as __>-Default (not brave-browser).
+  geminiAppId = "brave-gemini.google.com__app-Default";
+  whatsappAppId = "brave-web.whatsapp.com__-Default";
+  inherit (import ./web-apps/launch.nix { inherit lib pkgs config; })
+    braveWebapp
+    geminiUrl
+    whatsappUrl
+    ;
   zenCommand = lib.getExe zenBrowser;
-  noctaliaCommand = [ "noctalia-shell" ];
-  noctaliaIpcCommand = command: [ "noctalia-shell" "ipc" "call" ] ++ (lib.splitString " " command);
+  noctaliaCommand = [ "noctalia" ];
+  noctaliaSpawnSh = command: "spawn-sh \"noctalia msg ${command}\"";
   focusOrSpawn = pkgs.writeShellApplication {
     name = "niri-focus-or-spawn";
     runtimeInputs = with pkgs; [
@@ -19,6 +35,8 @@ let
       app_id_regex=""
       title=""
       title_regex=""
+      match_any=0
+      usage="Usage: niri-focus-or-spawn [--any] [--app-id VALUE] [--app-id-regex REGEX] [--title VALUE] [--title-regex REGEX] -- <command> [args...]"
 
       while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -38,19 +56,23 @@ let
             title_regex="$2"
             shift 2
             ;;
+          --any)
+            match_any=1
+            shift
+            ;;
           --)
             shift
             break
             ;;
           *)
-            echo "Usage: niri-focus-or-spawn [--app-id VALUE] [--app-id-regex REGEX] [--title VALUE] [--title-regex REGEX] -- <command> [args...]" >&2
+            echo "$usage" >&2
             exit 1
             ;;
         esac
       done
 
       if [ -z "$app_id$app_id_regex$title$title_regex" ] || [ "$#" -eq 0 ]; then
-        echo "Usage: niri-focus-or-spawn [--app-id VALUE] [--app-id-regex REGEX] [--title VALUE] [--title-regex REGEX] -- <command> [args...]" >&2
+        echo "$usage" >&2
         exit 1
       fi
 
@@ -61,15 +83,36 @@ let
               --arg app_id_regex "$app_id_regex" \
               --arg title "$title" \
               --arg title_regex "$title_regex" \
-              '.[]
-              | select(
-                  ($app_id == "" or .app_id == $app_id)
-                  and ($app_id_regex == "" or ((.app_id // "") | test($app_id_regex)))
-                  and ($title == "" or ((.title // "") == $title))
-                  and ($title_regex == "" or ((.title // "") | test($title_regex)))
-                )
-              | .id' \
-          | head -n1
+              --argjson match_any "$match_any" \
+              '
+              def app_ok:
+                ($app_id == "" or .app_id == $app_id)
+                and ($app_id_regex == "" or ((.app_id // "") | test($app_id_regex)));
+              def title_ok:
+                ($title == "" or ((.title // "") == $title))
+                and ($title_regex == "" or ((.title // "") | test($title_regex)));
+              def has_app_filter: $app_id != "" or $app_id_regex != "";
+              def has_title_filter: $title != "" or $title_regex != "";
+              def matches:
+                if $match_any == 1 then
+                  (has_app_filter and app_ok) or (has_title_filter and title_ok)
+                else
+                  app_ok and title_ok
+                end;
+
+              [ .[] | select(matches) ] | sort_by(.id) as $m
+              | if ($m | length) == 0 then
+                  empty
+                else
+                  ($m | map(select(.is_focused) | .id) | first // null) as $focused
+                  | ($m | map(.id)) as $ids
+                  | if ($focused != null) then
+                      $ids[(($ids | index($focused)) + 1) % ($ids | length)]
+                    else
+                      ($m | max_by(.focus_timestamp // 0) | .id)
+                    end
+                end
+              '
       )"
 
       if [ -n "''${window_id}" ] && [ "''${window_id}" != "null" ]; then
@@ -77,29 +120,6 @@ let
       fi
 
       exec "$@"
-    '';
-  };
-  screenshotDir = "$HOME/Pictures/Screenshots";
-  screenshotArea = pkgs.writeShellApplication {
-    name = "niri-screenshot-area";
-    runtimeInputs = with pkgs; [
-      coreutils
-      grim
-      libnotify
-      slurp
-      wl-clipboard
-    ];
-    text = ''
-      set -eu
-
-      geometry="$(slurp)" || exit 0
-      [ -n "$geometry" ] || exit 0
-
-      mkdir -p "${screenshotDir}"
-      file="${screenshotDir}/$(date +%Y-%m-%d_%H-%M-%S)-area.png"
-      grim -g "$geometry" "$file"
-      wl-copy < "$file"
-      notify-send "Screenshot saved" "$file copied to clipboard"
     '';
   };
   brightnessStepDown = pkgs.writeShellApplication {
@@ -180,6 +200,9 @@ in
         ${if vars.touchpad.tap then "tap" else ""}
         ${if vars.touchpad.disableWhileTyping then "dwt" else ""}
       }
+
+      // Hover fully visible windows only — avoids scroll-on-hover in scrollable tiling.
+      focus-follows-mouse max-scroll-amount="0%"
     }
 
     layout {
@@ -216,24 +239,11 @@ in
     // Apps that support xdg-decoration will hide their titlebar buttons
     prefer-no-csd
 
-    spawn-at-startup "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1"
+    // kdeconnectd runs as a systemd user service (modules/nixos/services/kdeconnect.nix)
     spawn-at-startup ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") noctaliaCommand}
 
-    // Idle Daemon (Lock Screen, DPMS & Sleep)
-    //   5 min idle        → Noctalia lock screen
-    //   5 min 30 s idle   → DPMS off (screen dark); any input turns it back on
-    //   30 min idle       → suspend-then-hibernate (see systemd.sleep.settings)
-    //   before-sleep      → lock the screen before the system sleeps
-    //   lock / unlock     → power monitors off/on when the session is locked
-    //                       or unlocked (covers manual Super+Shift+L too).
-    spawn-at-startup "swayidle" "-w" \
-                     "timeout" "300" "noctalia-shell ipc call lockScreen lock" \
-                     "timeout" "330" "niri msg action power-off-monitors" \
-                        "resume" "niri msg action power-on-monitors" \
-                     "timeout" "1800" "systemctl suspend-then-hibernate" \
-                     "before-sleep" "noctalia-shell ipc call lockScreen lock" \
-                     "lock" "sh -c 'noctalia-shell ipc call lockScreen lock; sleep 1; niri msg action power-off-monitors'" \
-                     "unlock" "niri msg action power-on-monitors"
+    // Pre-sleep lock: modules/nixos/hardware/power.nix (noctalia msg session lock).
+    // Idle timeouts (5m lock, 5m30s DPMS, 30m suspend) live in Noctalia config.toml.
 
     binds {
       // -- User Requested Binds --
@@ -252,45 +262,49 @@ in
 
       // Browser
       Mod+B { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--app-id-regex" "${zenAppIdRegex}" "--" "${zenCommand}"; }
-      // Launcher
-      // Alt+Space { spawn "fuzzel"; } # Fuzzel fallback
+      // Vesktop
       Mod+D { spawn "vesktop"; }
       
       // Notes
-      Mod+O { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--app-id" "obsidian" "--" "obsidian"; }
+      Mod+O { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--app-id-regex" "${obsidianAppIdRegex}" "--title-regex" "${obsidianTitleRegex}" "--" "obsidian"; }
 
       // Spotify
       Mod+S { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--app-id" "spotify" "--" "spotify"; }
 
+      // Cursor (IDE + Agents View): focus/cycle existing windows, spawn only if none
+      Mod+A { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--any" "--app-id-regex" "${cursorAppIdRegex}" "--title-regex" "${cursorTitleRegex}" "--" "env" "-u" "NIXOS_OZONE_WL" "${lib.getExe pkgs.code-cursor}"; }
+
+      // Brave web apps (Omarchy-style --app windows; desktop entries in web-apps.nix)
+      Mod+Shift+G { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--app-id" "${geminiAppId}" "--" "${lib.getExe braveWebapp}" "${geminiUrl}"; }
+      Mod+Shift+W { spawn "${focusOrSpawn}/bin/niri-focus-or-spawn" "--app-id" "${whatsappAppId}" "--" "${lib.getExe braveWebapp}" "${whatsappUrl}"; }
+
       // -- Noctalia Controls --
-      Mod+Space { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "launcher toggle")}; }
-      Mod+V { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "launcher clipboard")}; }
-      Mod+Alt+Comma { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "settings toggle")}; }
-      Mod+Shift+C { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "controlCenter toggle")}; }
-      Mod+Escape { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "sessionMenu toggle")}; }
+      Mod+Space { ${noctaliaSpawnSh "panel-toggle launcher"}; }
+      Mod+V { ${noctaliaSpawnSh "panel-toggle clipboard"}; }
+      Mod+Alt+Comma { ${noctaliaSpawnSh "settings-toggle"}; }
+      Mod+Shift+C { ${noctaliaSpawnSh "panel-toggle control-center"}; }
+      Mod+Escape { ${noctaliaSpawnSh "panel-toggle session"}; }
 
       // -- Sane Defaults (from Niri Wiki) --
 
-      // Terminal
-      Mod+Return { spawn "alacritty"; }
-      Mod+T { spawn "alacritty"; }
+      // Terminal (follows default-terminal.nix via xdg-terminal-exec)
+      Mod+Return { spawn "xdg-terminal-exec"; }
+      Mod+T { spawn "xdg-terminal-exec"; }
 
-      // Screen Locking (Noctalia lock) — also powers the monitors off ~1s
-      // after the lock overlay appears, so manual locks dark the screen
-      // immediately without waiting for the idle DPMS timeout.
-      Super+Shift+L { spawn "sh" "-c" "noctalia-shell ipc call lockScreen lock; sleep 3; niri msg action power-off-monitors"; }
+      // Screen Locking (Noctalia lock; DPMS follows idle timer in config.toml)
+      Super+Shift+L { ${noctaliaSpawnSh "session lock"}; }
 
-      // Screenshots
-      Mod+Shift+S { spawn "${screenshotArea}/bin/niri-screenshot-area"; }
-      Print { screenshot; }
-      Ctrl+Print { screenshot-screen; }
+      // Screenshots (Noctalia region/fullscreen; Alt+Print stays on Niri for window capture)
+      Mod+Shift+S { ${noctaliaSpawnSh "screenshot-region"}; }
+      Print { ${noctaliaSpawnSh "screenshot-region"}; }
+      Ctrl+Print { ${noctaliaSpawnSh "screenshot-fullscreen"}; }
       Alt+Print { screenshot-window; }
       
       // Volume
-      XF86AudioRaiseVolume { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "volume increase")}; }
-      XF86AudioLowerVolume { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "volume decrease")}; }
-      XF86AudioMute { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "volume muteOutput")}; }
-      XF86AudioMicMute { spawn ${lib.concatMapStringsSep " " (arg: "\"${arg}\"") (noctaliaIpcCommand "volume muteInput")}; }
+      XF86AudioRaiseVolume { ${noctaliaSpawnSh "volume-up"}; }
+      XF86AudioLowerVolume { ${noctaliaSpawnSh "volume-down"}; }
+      XF86AudioMute { ${noctaliaSpawnSh "volume-mute"}; }
+      XF86AudioMicMute { ${noctaliaSpawnSh "mic-mute"}; }
 
       // Brightness
       XF86MonBrightnessUp { spawn "${brightnessStepUp}/bin/niri-brightness-step-up"; }
@@ -407,6 +421,12 @@ in
       Mod+TouchpadScrollLeft cooldown-ms=100 { focus-column-left; }
       Mod+WheelScrollRight cooldown-ms=50 { focus-column-right; }
       Mod+WheelScrollLeft cooldown-ms=50 { focus-column-left; }
+
+      // Mod+Shift + vertical scroll = window stack (wraps to adjacent column at edges)
+      Mod+Shift+TouchpadScrollDown cooldown-ms=100 { focus-window-down-or-column-right; }
+      Mod+Shift+TouchpadScrollUp cooldown-ms=100 { focus-window-up-or-column-left; }
+      Mod+Shift+WheelScrollDown cooldown-ms=50 { focus-window-down-or-column-right; }
+      Mod+Shift+WheelScrollUp cooldown-ms=50 { focus-window-up-or-column-left; }
     }
 
     hotkey-overlay {
@@ -432,22 +452,35 @@ in
       honor-xdg-activation-with-invalid-serial
     }
 
+    // Noctalia: Floating settings window (proportions fit scaled outputs)
+    window-rule {
+      match app-id="dev.noctalia.Noctalia"
+      open-floating true
+      default-column-width { proportion 0.85; }
+      default-window-height { proportion 0.9; }
+    }
+
+    // Spotify: tile by default; cap open size if it floats
+    window-rule {
+      match app-id="spotify"
+      open-floating false
+      default-column-width { proportion 0.75; }
+      default-window-height { proportion 0.85; }
+    }
+
     // Noctalia: Blurred overview backdrop
     layer-rule {
-      match namespace="^noctalia-overview*"
+      match namespace="^noctalia-backdrop"
       place-within-backdrop true
     }
   '';
-  
+
   home.packages = with pkgs; [
-    fuzzel
     libnotify
     jq # Required for force-quit script
     focusOrSpawn
-    screenshotArea
     brightnessStepUp
     brightnessStepDown
-    swayidle # Idle daemon (spawned in Niri KDL config above)
   ];
 }
 

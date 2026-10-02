@@ -7,5 +7,6 @@
     ./greetd.nix
     ./thunar.nix
     ./steam.nix
+    ./brave-policy.nix
   ];
 }
