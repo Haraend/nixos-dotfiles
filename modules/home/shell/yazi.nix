@@ -5,6 +5,6 @@
   programs.yazi = {
     enable = true;
     enableZshIntegration = true;
-    shellWrapperName = "y";  # New default (was "yy" before stateVersion 26.05)
+    shellWrapperName = "y"; # New default (was "yy" before stateVersion 26.05)
   };
 }

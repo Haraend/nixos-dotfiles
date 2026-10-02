@@ -7,8 +7,8 @@
     enable = true;
     enable32Bit = true;
     extraPackages = with pkgs; [
-      intel-media-driver   # LIBVA_DRIVER_NAME=iHD
-      intel-vaapi-driver   # LIBVA_DRIVER_NAME=i965 (older but good fallback)
+      intel-media-driver # LIBVA_DRIVER_NAME=iHD
+      intel-vaapi-driver # LIBVA_DRIVER_NAME=i965 (older but good fallback)
       libva-vdpau-driver
       libvdpau-va-gl
     ];
@@ -18,7 +18,7 @@
   };
 
   # Environment variables to force Intel driver
-  environment.sessionVariables = { 
-    LIBVA_DRIVER_NAME = "iHD"; 
+  environment.sessionVariables = {
+    LIBVA_DRIVER_NAME = "iHD";
   };
 }

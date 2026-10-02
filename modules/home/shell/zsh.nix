@@ -7,7 +7,6 @@
     enable = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
-    
     # History settings
     history = {
       size = 10000;
@@ -16,20 +15,6 @@
       ignoreSpace = true;
       share = true;
     };
-
-    # Plugins without Oh My Zsh (lighter weight)
-    plugins = [
-      {
-        name = "zsh-autosuggestions";
-        src = pkgs.zsh-autosuggestions;
-        file = "share/zsh-autosuggestions/zsh-autosuggestions.zsh";
-      }
-      {
-        name = "zsh-syntax-highlighting";
-        src = pkgs.zsh-syntax-highlighting;
-        file = "share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh";
-      }
-    ];
 
     # Additional init
     initContent = ''

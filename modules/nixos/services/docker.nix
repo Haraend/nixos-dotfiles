@@ -5,6 +5,7 @@
   # Enable Docker daemon
   virtualisation.docker = {
     enable = true;
+    enableOnBoot = false; # start on demand: sudo systemctl start docker
     autoPrune = {
       enable = true;
       dates = "weekly";

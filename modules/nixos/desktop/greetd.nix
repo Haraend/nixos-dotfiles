@@ -1,11 +1,21 @@
-{ pkgs, ... }:
+{ pkgs, lib, config, ... }:
 
 {
   services.greetd = {
     enable = true;
     settings = {
       default_session = {
-        command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --remember-session";
+        # --cmd is the durable fallback: --remember-session stores an absolute
+        # /nix/store/…-desktops/…/niri.desktop path that GC can collect.
+        # --sessions is the NixOS session dir (not /usr/share/wayland-sessions).
+        command = lib.concatStringsSep " " [
+          (lib.getExe pkgs.tuigreet)
+          "--time"
+          "--remember"
+          "--remember-session"
+          "--sessions ${config.services.displayManager.sessionData.desktops}/share/wayland-sessions"
+          "--cmd ${config.programs.niri.package}/bin/niri-session"
+        ];
         user = "greeter";
       };
     };

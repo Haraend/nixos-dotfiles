@@ -2,16 +2,12 @@
 {
   imports = [
     ./hardware-configuration.nix
-    ../../modules/nixos  # Imports all NixOS modules via default.nix
+    ../../modules/nixos # Imports all NixOS modules via default.nix
     inputs.nixos-hardware.nixosModules.lenovo-thinkpad-t14-intel-gen1
   ];
 
   # Hostname (from shared vars)
   networking.hostName = vars.hostname;
-
-  # Bootloader
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
 
   # Nix settings
   nix = {
@@ -19,6 +15,15 @@
       experimental-features = [ "nix-command" "flakes" ];
       max-jobs = "auto";
       cores = 0;
+      extra-substituters = [
+        # Noctalia C++ shell (only hits if noctalia does not follow nixpkgs).
+        "https://noctalia.cachix.org"
+        "https://nix-community.cachix.org"
+      ];
+      extra-trusted-public-keys = [
+        "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
+        "nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="
+      ];
     };
     # Run store deduplication on a timer instead of synchronously during every
     # build (auto-optimise-store) — the sync version noticeably slows rebuilds.
@@ -33,9 +38,15 @@
     };
   };
 
-  # Timezone and locale (from shared vars)
+  # Timezone and locale (from shared vars).
+  # lcTime defaults to en_GB so weeks start on Monday. Messages follow vars.locale.
   time.timeZone = vars.timezone;
   i18n.defaultLocale = vars.locale;
+  i18n.extraLocaleSettings.LC_TIME = vars.lcTime;
+  i18n.supportedLocales = lib.unique [
+    "${vars.locale}/UTF-8"
+    "${vars.lcTime}/UTF-8"
+  ];
 
   # Keyboard
   services.xserver.xkb = {
@@ -47,7 +58,7 @@
   users.users.${vars.username} = {
     isNormalUser = true;
     description = vars.fullName;
-    shell = pkgs.zsh;  # Set Zsh as default shell
+    shell = pkgs.zsh; # Set Zsh as default shell
     extraGroups = [ "networkmanager" "wheel" "audio" "video" "kvm" "input" ];
     openssh.authorizedKeys.keys = vars.sshPublicKeys;
   };
@@ -82,6 +93,12 @@
 
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
+
+  # sudo only meaningful for wheel users
+  security.sudo.execWheelOnly = true;
+
+  # Drop nano/perl/rsync from the system profile; vim/git below cover rescue use.
+  environment.defaultPackages = [ ];
 
   # System packages
   environment.systemPackages = with pkgs; [

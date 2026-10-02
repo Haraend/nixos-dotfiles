@@ -23,43 +23,41 @@
     systemdTarget = "graphical-session.target";
 
     settings = [
-      # BOE internal panel + HKC GN07 on HDMI (see `niri msg outputs` / `wlr-randr`).
-      # Kanshi matches only when profile output count equals connected heads.
+      # Laptop panel only. A profile matches when its output count equals
+      # the number of connected screens.
       {
-        profile.name = "docked-hkc-hdmi";
+        profile.name = "laptop";
         profile.outputs = [
-          {
-            criteria = "HDMI-A-2";
-            status = "enable";
-            mode = "2560x1440@60";
-            position = "0,0";
-            scale = 1.0;
-          }
           {
             criteria = "eDP-1";
             status = "enable";
-            mode = "1920x1080@60";
-            position = "520,1440";
             scale = 1.25;
           }
         ];
       }
 
-      # Laptop only (no external display).
-      {
-        profile.name = "undocked";
-        profile.outputs = [
-          {
-            criteria = "eDP-1";
-            status = "enable";
-          }
-        ];
-      }
+      # External display. Uncomment and adjust after `niri msg outputs`.
+      # {
+      #   profile.name = "external";
+      #   profile.outputs = [
+      #     {
+      #       criteria = "HDMI-A-1";
+      #       status = "enable";
+      #       mode = "1920x1080@60";
+      #       position = "0,0";
+      #     }
+      #     {
+      #       criteria = "eDP-1";
+      #       status = "enable";
+      #       scale = 1.25;
+      #       position = "1920,0";
+      #     }
+      #   ];
+      # }
     ];
   };
 
   home.packages = with pkgs; [
-    kanshi        # daemon (also pulled in by the module, listed for `kanshictl`)
-    wdisplays     # GUI output arranger (wlroots, works with Niri)
+    wdisplays # GUI output arranger (wlroots, works with Niri)
   ];
 }
