@@ -1,0 +1,29 @@
+name: flake-check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Bootstrap local templates
+        # These files are gitignored. path: below is what makes Nix see them.
+        run: |
+          cp lib/vars.example.nix lib/vars.nix
+          cp hosts/nixos/hardware-configuration.example.nix hosts/nixos/hardware-configuration.nix
+
+      - name: Check formatting
+        run: nix run nixpkgs#nixpkgs-fmt -- --check .
+
+      - name: Evaluate flake
+        # path: includes the gitignored templates. A git flake reference would omit them.
+        # No --no-build: Stylix reads base16-schemes YAML from the store at
+        # eval time, which needs a (tiny, substitutable) package realised.
+        # The system toplevel itself is only evaluated, never built here.
+        run: nix flake check path:.
