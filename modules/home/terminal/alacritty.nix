@@ -1,5 +1,5 @@
-# Alacritty - GPU-accelerated terminal emulator
-{ config, lib, pkgs, ... }:
+# Alacritty - GPU-accelerated terminal emulator (kept installed; default lives in default-terminal.nix)
+{ ... }:
 
 {
   programs.alacritty = {
@@ -11,14 +11,5 @@
       };
     };
   };
-
-  # Set Alacritty as the default terminal
-  home.sessionVariables = {
-    TERMINAL = "alacritty";
-  };
-
-  # Register as default terminal for xdg-terminal-exec (used by some apps)
-  xdg.configFile."xdg-terminals.list".text = ''
-    alacritty
-  '';
 }
+

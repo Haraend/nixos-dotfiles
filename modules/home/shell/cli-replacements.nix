@@ -6,8 +6,8 @@
   programs.eza = {
     enable = true;
     git = true;
-    icons = "auto";      # Auto-detect if icons should be shown
-    enableZshIntegration = false;  # We manage aliases manually
+    icons = "auto"; # Auto-detect if icons should be shown
+    enableZshIntegration = false; # We manage aliases manually
     enableBashIntegration = false;
   };
 
@@ -32,8 +32,7 @@
 
   # Additional CLI tools
   home.packages = with pkgs; [
-    fd            # Modern find
-    ripgrep       # Fast code search (rg)
-    delta         # Pretty git diffs (module config above)
+    fd # Modern find
+    ripgrep # Fast code search (rg)
   ];
 }

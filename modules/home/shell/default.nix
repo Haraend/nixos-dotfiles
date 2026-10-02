@@ -13,6 +13,7 @@
     ./fnm.nix
     ./python.nix
     ./java.nix
+    ./flutter.nix
     ./battery.nix
   ];
 }

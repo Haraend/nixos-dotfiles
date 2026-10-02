@@ -1,0 +1,2 @@
+-- Keymaps are automatically loaded by LazyVim after its defaults.
+-- Add personal overrides here; LazyVim basics (Space leader, etc.) are built in.

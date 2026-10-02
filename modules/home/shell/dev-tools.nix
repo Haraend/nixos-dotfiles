@@ -11,7 +11,7 @@ in
     enable = true;
     enableZshIntegration = true;
     enableBashIntegration = true;
-    nix-direnv.enable = true;  # Better nix integration
+    nix-direnv.enable = true; # Better nix integration
   };
 
   # Lazygit - terminal git UI (module enabled for theming)
@@ -25,10 +25,11 @@ in
 
   # Additional dev packages
   home.packages = with pkgs; [
-    nh            # Nix helper
-    gh            # GitHub CLI
-    awscli2       # AWS CLI v2
-    uv            # Fast Python package installer and resolver
+    nh # Nix helper
+    gh # GitHub CLI
+    awscli2 # AWS CLI v2
+    uv # Fast Python package installer and resolver
+    cloudflared # Cloudflare Quick Tunnels (share localhost)
   ];
 
   # uv tool install puts binaries here; can't use `uv tool update-shell` because

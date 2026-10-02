@@ -7,7 +7,7 @@
     enable = true;
     enableZshIntegration = true;
     enableBashIntegration = true;
-    options = [ "--cmd cd" ];  # Use 'cd' instead of 'z'
+    options = [ "--cmd cd" ]; # Use 'cd' instead of 'z'
   };
 
   # Fzf - fuzzy finder

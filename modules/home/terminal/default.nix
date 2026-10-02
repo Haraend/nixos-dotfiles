@@ -4,6 +4,9 @@
 {
   imports = [
     ./alacritty.nix
+    ./foot.nix
+    ./default-terminal.nix
     ./tmux.nix
+    ./neovim.nix
   ];
 }

@@ -2,7 +2,7 @@
 
 {
   imports = [
-    ../../modules/home  # Imports all Home Manager modules via default.nix
+    ../../modules/home # Imports all Home Manager modules via default.nix
   ];
 
   # Theming is handled by Stylix (see modules/nixos/stylix.nix)
@@ -13,15 +13,36 @@
   home.stateVersion = vars.stateVersion;
 
   # Default editor (used by `$EDITOR`, git, less, etc.)
+  # nvim = LazyVim (modules/home/terminal/neovim.nix); plain vim stays on the
+  # system profile for root/rescue.
   home.sessionVariables = {
-    EDITOR = "vim";
-    VISUAL = "vim";
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+  };
+
+  # XDG user dirs: declared so paths like ~/Pictures/Screenshots (Noctalia's
+  # screenshot target) exist deterministically, not by manual mkdir.
+  xdg.userDirs = {
+    enable = true;
+    createDirectories = true;
+    # Legacy default (stateVersion < 26.05) pinned explicitly to silence the
+    # HM migration warning; exports XDG_*_DIR into the session environment.
+    setSessionVariables = true;
+    documents = "$HOME/Documents";
+    download = "$HOME/Downloads";
+    music = "$HOME/Music";
+    pictures = "$HOME/Pictures";
+    videos = "$HOME/Videos";
+    extraConfig = {
+      SCREENSHOTS = "$HOME/Pictures/Screenshots";
+    };
   };
 
   # Vim config for this user; system profile also has vim (configuration.nix) for root/rescue.
+  # defaultEditor stays off - $EDITOR points at nvim above.
   programs.vim = {
     enable = true;
-    defaultEditor = true;
+    defaultEditor = false;
     settings = {
       number = true;
       relativenumber = true;
